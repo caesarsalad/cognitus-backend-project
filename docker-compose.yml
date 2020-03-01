@@ -1,0 +1,50 @@
+version: '3'
+services:
+    web:
+        build: ./web
+        entrypoint: /entrypoint.sh
+        command: python manage.py runserver 0.0.0.0:8000
+        ports:
+            - 8000:8000
+        depends_on:
+            - db
+            - microservice
+
+    microservice:
+        build: ./microservice
+        command: flask run --host=0.0.0.0 --port=8080
+        ports:
+            - 8080:8080
+        environment:
+            - FLASK_APP=app.py
+        env_file:
+            - env.list
+        depends_on:
+            - db
+            - microservice_celery
+        volumes:
+            - ./trainResultData:/srv/trainResultData
+    db:
+        image: postgres
+        environment:
+            - POSTGRES_USER=user
+            - POSTGRES_PASSWORD=pass
+            - POSTGRES_DB=mockdb
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+
+    microservice_redis:
+        image: "redis:alpine"
+
+    microservice_celery:
+        build: ./microservice
+        command: celery -A app.celery worker -l info
+        env_file:
+            - env.list
+        depends_on:
+            - microservice_redis
+        volumes:
+            - ./trainResultData:/srv/trainResultData
+
+volumes:
+    postgres_data:
